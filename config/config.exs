@@ -54,16 +54,17 @@ config :tailwind,
 
 # Configures Elixir's Logger
 config :logger, :console,
-  level: :error,
+  level: :debug,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-config :kvstore, Kvstore.Broadcast,
+config :kvstore,
   broadcast: fn message ->
-    Visualisation.PubSub.broadcast(Visualisation.PubSub, "kvstore", message)
+    IO.puts("Broadcasting message: #{inspect(message)}")
+    :ok = Phoenix.PubSub.broadcast(Visualisation.PubSub, "kvstore", message)
   end
 
 # Import environment specific config. This must remain at the bottom
