@@ -7,9 +7,43 @@ defmodule VisualisationWeb.DBLiveController do
 
   def render(assigns) do
     ~H"""
-    <.live_component module={VisualisationWeb.IncA} id="inc_a" />
+    <div class="p-1">
+      <button
+        id="toggleButton"
+        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-1 rounded"
+      >
+        Boring Controlls
+      </button>
+      <div id="content" class="rounded hidden">
+        <div class="flex">
+          <div class="flex-1 border border-gray-300">
+            <.live_component module={VisualisationWeb.Set} id="set" />
+          </div>
+          <div class="flex-1 border border-gray-300">
+            <.live_component module={VisualisationWeb.Get} id="get" />
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <.live_component module={VisualisationWeb.Test} id="test_db" />
+    <script>
+      const button = document.getElementById('toggleButton');
+      const content = document.getElementById('content');
+
+      button.onclick = function() {
+          content.classList.toggle('hidden');
+          button.textContent = content.classList.contains('hidden') ? 'Boring Congrolls' : 'Hide';
+      };
+    </script>
+
+    <div class="flex">
+      <div class="flex-1 border border-gray-300 p-4">
+        <.live_component module={VisualisationWeb.Test} id="test_db" />
+      </div>
+      <div class="flex-1 border border-gray-300 p-4">
+        <.live_component module={VisualisationWeb.AddRandom} id="add_random" />
+      </div>
+    </div>
 
     <div class="flex">
       <div class="flex-1 border border-gray-300 p-4">
@@ -81,7 +115,7 @@ defmodule VisualisationWeb.Node do
     ~H"""
     <div>
       id: <%= @node_id %> <br /> SSts:
-      <ul>
+      <ul class="h-20">
         <%= for sst <- @ssts do %>
           <li><%= sst %></li>
         <% end %>
@@ -91,11 +125,11 @@ defmodule VisualisationWeb.Node do
       <ul>
         <%= for {level, parts} <- @lsm do %>
           <li>
-            Level <%= level %>
+            <b>Level <%= level %></b>
             <ul>
-              <%= for part <- parts do %>
+              <%= for {part, bound} <- parts do %>
                 <li>
-                  <p>&ensp;<%= part %></p>
+                  <p>&ensp;<%= part %> | <%= bound %></p>
                 </li>
               <% end %>
             </ul>
@@ -144,9 +178,36 @@ defmodule VisualisationWeb.Node do
     |> Kvstore.LSMTree.get_levels()
     |> Enum.map(fn {level, _, _} = x -> {level, Kvstore.LSMLevel.list_parts(x)} end)
   end
+end
 
-  def handle_info(msg, socket) do
-    dbg(msg)
+defmodule VisualisationWeb.AddRandom do
+  use VisualisationWeb, :live_component
+
+  def mount(socket) do
+    {:ok, assign(socket, form: %{"n" => "10"})}
+  end
+
+  def render(assigns) do
+    ~H"""
+    <div>
+      Add random key-values
+      <.simple_form for={@form} phx-submit="add_random" phx-target={@myself}>
+        <.input field={@form[:n]} label="n" name="n" value={@form["n"]} />
+        <:actions>
+          <.button>
+            GO
+          </.button>
+        </:actions>
+      </.simple_form>
+    </div>
+    """
+  end
+
+  def handle_event("add_random", %{"n" => n}, socket) do
+    n
+    |> String.to_integer()
+    |> KV.add_random_keys()
+
     {:noreply, socket}
   end
 end
@@ -166,12 +227,13 @@ defmodule VisualisationWeb.Test do
   def render(assigns) do
     ~H"""
     <div>
+      Increment n keys x times
       <.simple_form for={@form} phx-submit="do_the_test" phx-target={@myself}>
         <.input field={@form[:keys]} label="keys" name="keys" value={@form["keys"]} />
         <.input field={@form[:incs]} label="increments" name="increments" value={@form["incs"]} />
         <:actions>
           <.button>
-            Go
+            GO
           </.button>
         </:actions>
       </.simple_form>
@@ -186,7 +248,9 @@ defmodule VisualisationWeb.Test do
 
   def handle_event("do_the_test", %{"keys" => keys, "increments" => incs}, socket) do
     {:noreply,
-     assign_async(socket, :test_result, fn ->
+     socket
+     |> assign(:form_test, %{"keys" => keys, "incs" => incs})
+     |> assign_async(:test_result, fn ->
        res =
          KV.do_the_test(String.to_integer(keys), String.to_integer(incs))
          |> Enum.map(fn {k, v} -> "#{k}: #{v}" end)
@@ -198,44 +262,64 @@ defmodule VisualisationWeb.Test do
   end
 end
 
-defmodule VisualisationWeb.IncA do
+defmodule VisualisationWeb.Get do
   use VisualisationWeb, :live_component
 
   def mount(socket) do
-    {:ok, assign(socket, key: KV.get("a"))}
+    {:ok, assign(socket, form: %{"key" => "zzzzzzzzz"}, res: nil)}
   end
 
   def render(assigns) do
     ~H"""
     <div>
-      a = "<%= @key %>" <br />
-      <.button
-        phx-click="inc"
-        phx-target={@myself}
-        phx-disable-with="Updating..."
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-      >
-        Inc a key "a"
-      </.button>
+      Get value for key
+      <.simple_form for={@form} phx-submit="get" phx-target={@myself}>
+        <.input field={@form["key"]} label="key" name="key" value={@form["key"]} />
+        <:actions>
+          <.button>
+            Get
+          </.button>
+        </:actions>
+      </.simple_form>
+      <div :if={@res}>
+        <%= @res %>
+      </div>
     </div>
     """
   end
 
-  def handle_event("inc", _, socket) do
-    new_val =
-      case KV.get("a") do
-        nil ->
-          KV.set("a", "1")
-          "1"
+  def handle_event("get", %{"key" => key}, socket) do
+    res = KV.get(key)
+    {:noreply, assign(socket, form: %{"key" => key}, res: res)}
+  end
+end
 
-        v ->
-          v
-          |> String.to_integer()
-          |> Kernel.+(1)
-          |> Integer.to_string()
-          |> tap(&KV.set("a", &1))
-      end
+defmodule VisualisationWeb.Set do
+  use VisualisationWeb, :live_component
 
-    {:noreply, assign(socket, key: new_val)}
+  def mount(socket) do
+    {:ok, assign(socket, form: %{"key" => "zzzzzzzzz", "value" => "34"})}
+  end
+
+  def render(assigns) do
+    ~H"""
+    <div>
+      Set value for key
+      <.simple_form for={@form} phx-submit="set" phx-target={@myself}>
+        <.input field={@form["key"]} label="key" name="key" value={@form["key"]} />
+        <.input field={@form["value"]} label="value" name="value" value={@form["value"]} />
+        <:actions>
+          <.button>
+            Set
+          </.button>
+        </:actions>
+      </.simple_form>
+    </div>
+    """
+  end
+
+  def handle_event("set", %{"key" => key, "value" => value}, socket) do
+    KV.set(key, value)
+    {:noreply, assign(socket, form: %{"key" => key, "value" => value})}
   end
 end
