@@ -63,7 +63,6 @@ config :phoenix, :json_library, Jason
 
 config :kvstore,
   broadcast: fn message ->
-    IO.puts("Broadcasting message: #{inspect(message)}")
     :ok = Phoenix.PubSub.broadcast(Visualisation.PubSub, "kvstore", message)
   end
 

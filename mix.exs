@@ -48,7 +48,8 @@ defmodule Visualisation.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:plug_cowboy, "~> 2.5"},
-      {:kvstore, git: "https://github.com/BitsAndBytesBookClub/relar-kv", branch: "main"}
+      # {:kvstore, git: "https://github.com/BitsAndBytesBookClub/relar-kv", branch: "main"}
+      {:kvstore, path: "../kvstore"}
     ]
   end
 

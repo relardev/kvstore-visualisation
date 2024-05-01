@@ -11,7 +11,50 @@ defmodule VisualisationWeb.DBLiveController do
 
     <.live_component module={VisualisationWeb.Test} id="test_db" />
 
-    <%= live_render(@socket, VisualisationWeb.Node, id: "1_1") %>
+    <div class="flex">
+      <div class="flex-1 border border-gray-300 p-4">
+        Node 1
+        <div class="flex">
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "1_1") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "1_2") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "1_3") %>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 border border-gray-300 p-4">
+        Node 2
+        <div class="flex">
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "2_1") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "2_2") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "2_3") %>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 border border-gray-300 p-4">
+        Node 3
+        <div class="flex">
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "3_1") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "3_2") %>
+          </div>
+          <div class="flex-1 p-4 border border-gray-300">
+            <%= live_render(@socket, VisualisationWeb.Node, id: "3_3") %>
+          </div>
+        </div>
+      </div>
+    </div>
     """
   end
 end
@@ -31,16 +74,32 @@ defmodule VisualisationWeb.Node do
         |> List.last()
       end)
 
-    {:ok, assign(socket, node_id: socket.id, ssts: ssts)}
+    {:ok, assign(socket, node_id: socket.id, ssts: ssts, lsm: get_lsm!(socket.id))}
   end
 
   def render(assigns) do
     ~H"""
     <div>
-      Node: <%= @node_id %> <br /> SSts:
+      id: <%= @node_id %> <br /> SSts:
       <ul>
         <%= for sst <- @ssts do %>
           <li><%= sst %></li>
+        <% end %>
+      </ul>
+
+      <br /> LSM:
+      <ul>
+        <%= for {level, parts} <- @lsm do %>
+          <li>
+            Level <%= level %>
+            <ul>
+              <%= for part <- parts do %>
+                <li>
+                  <p>&ensp;<%= part %></p>
+                </li>
+              <% end %>
+            </ul>
+          </li>
         <% end %>
       </ul>
     </div>
@@ -70,8 +129,24 @@ defmodule VisualisationWeb.Node do
     end
   end
 
+  def handle_info({:update_lsm, _, _, node_id}, socket) do
+    case node_id == socket.id do
+      true ->
+        {:noreply, assign(socket, lsm: get_lsm!(node_id))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  defp get_lsm!(node_id) do
+    node_id
+    |> Kvstore.LSMTree.get_levels()
+    |> Enum.map(fn {level, _, _} = x -> {level, Kvstore.LSMLevel.list_parts(x)} end)
+  end
+
   def handle_info(msg, socket) do
-    # dbg(msg)
+    dbg(msg)
     {:noreply, socket}
   end
 end
