@@ -2,6 +2,8 @@
 
 ![demo](demo.gif)
 
+[key value store](https://github.com/BitsAndBytesBookClub/relar-kv)
+
 To start your Phoenix server:
 
   * Run `mix setup` to install and setup dependencies
